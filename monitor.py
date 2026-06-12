@@ -1,36 +1,42 @@
-name: Page Monitor
-on:
-  schedule:
-    - cron: "*/30 * * * *"
-  workflow_dispatch:
+import requests
+import hashlib
+import os
 
-jobs:
-  monitor_job:
-    runs-on: ubuntu-latest
-    steps:
-      - name: 拉取仓库代码
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
+PUSH_TOKEN = os.getenv("PUSH_TOKEN")
+TARGET_URL = os.getenv("TARGET_URL")
 
-      - name: 配置Python环境
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
+if not PUSH_TOKEN or not TARGET_URL:
+    print("ERROR：环境变量读取为空，请检查GitHub Secrets配置")
+    exit(1)
 
-      # 新增：安装requests依赖
-      - name: 安装Python依赖requests
-        run: pip install requests
+headers = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+}
 
-      - name: 执行监控脚本
-        env:
-          PUSH_TOKEN: ${{ secrets.PUSH_TOKEN }}
-          TARGET_URL: ${{ secrets.TARGET_URL }}
-        run: python3 $GITHUB_WORKSPACE/monitor.py
+try:
+    resp = requests.get(TARGET_URL, headers=headers, timeout=15)
+    resp.raise_for_status()
+    html = resp.text
+except Exception as e:
+    print(f"网页抓取失败：{str(e)}")
+    exit(1)
 
-      - name: 提交更新后的哈希记录
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "actions@github.com"
-          git add hash_record.txt
-          git diff --quiet && git diff --staged --quiet || (git commit -m "auto update hash" && git push)
+new_hash = hashlib.md5(html.encode("utf-8")).hexdigest()
+record_file = "hash_record.txt"
+old_hash = ""
+
+if os.path.exists(record_file):
+    with open(record_file, "r", encoding="utf-8") as f:
+        old_hash = f.read().strip()
+
+if new_hash != old_hash:
+    push_url = f"https://xizhi.qqoq.net/{PUSH_TOKEN}.send?title=江苏考试院页面更新提醒&content=招考页面内容发生变动，请手动访问官网查看最新公告"
+    try:
+        requests.get(push_url, timeout=10)
+        print("页面更新，已发送微信推送")
+    except Exception as e:
+        print(f"推送接口调用失败：{str(e)}")
+    with open(record_file, "w", encoding="utf-8") as f:
+        f.write(new_hash)
+else:
+    print("页面无更新，无需推送")
