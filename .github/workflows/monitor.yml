@@ -32,5 +32,5 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "actions@github.com"
-          git add hash_record.txt
+          git add hash_*.txt
           git diff --quiet && git diff --staged --quiet || (git commit -m "auto update hash" && git push)
