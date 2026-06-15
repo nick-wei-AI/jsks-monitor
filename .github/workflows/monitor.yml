@@ -26,6 +26,7 @@ jobs:
         env:
           PUSH_TOKEN: ${{ secrets.PUSH_TOKEN }}
           TARGET_URL: ${{ secrets.TARGET_URL }}
+          TARGET_URL_2: ${{ secrets.TARGET_URL_2 }}
         run: python3 $GITHUB_WORKSPACE/monitor.py
 
       - name: 提交更新后的哈希记录
